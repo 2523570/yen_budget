@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Minimal Budget App</title>
+  <style>
+    body { font-family: system-ui, -apple-system, sans-serif; background:#f8fafc; margin:0; padding:16px; }
+    h1,h2 { margin: 0 0 8px 0; }
+    .card { background:white; border-radius:14px; padding:16px; margin-bottom:12px; box-shadow:0 4px 10px rgba(0,0,0,0.05); }
+    button { width:100%; padding:12px; border:none; border-radius:10px; background:#2563eb; color:white; font-size:1rem; margin-top:8px; }
+    input { width:100%; padding:10px; border-radius:10px; border:1px solid #cbd5e1; margin-top:6px; font-size:1rem; }
+    .row { display:flex; justify-content:space-between; align-items:center; }
+    .link { color:#2563eb; cursor:pointer; text-decoration:underline; }
+    .muted { color:#64748b; font-size:0.85rem; }
+  </style>
+</head>
+<body>
+
+<div id="app"></div>
+
+<script>
+const defaultCategories = {
+  Food: { budget: 30000, spent: 0 },
+  "Eating Out": { budget: 20000, spent: 0 },
+  Miscellaneous: { budget: 10000, spent: 0 },
+  "Luxury Goods": { budget: 25000, spent: 0 }
+};
+
+let state = {
+  monthTitle: "Current Month",
+  categories: JSON.parse(JSON.stringify(defaultCategories))
+};
+
+let history = JSON.parse(localStorage.getItem('budgetHistory') || '[]');
+
+function saveState() {
+  localStorage.setItem('budgetCurrent', JSON.stringify(state));
+  localStorage.setItem('budgetHistory', JSON.stringify(history));
+}
+
+function loadState() {
+  const saved = JSON.parse(localStorage.getItem('budgetCurrent'));
+  if (saved) state = saved;
+}
+
+function totalSpent() {
+  return Object.values(state.categories).reduce((a,c)=>a+c.spent,0);
+}
+function totalBudget() {
+  return Object.values(state.categories).reduce((a,c)=>a+c.budget,0);
+}
+
+function renderMain() {
+  const app = document.getElementById('app');
+  app.innerHTML = `
+    <h1>${state.monthTitle}</h1>
+    <div class="card">
+      <h2>Total</h2>
+      <strong>¥${totalSpent().toLocaleString()} / ¥${totalBudget().toLocaleString()}</strong>
+    </div>
+    ${Object.entries(state.categories).map(([name,c])=>`
+      <div class="card">
+        <div class="row">
+          <strong>${name}</strong>
+          <span class="link" onclick="renderCategory('${name}')">Open</span>
+        </div>
+        <div>¥${c.spent.toLocaleString()} / ¥${c.budget.toLocaleString()}</div>
+      </div>
+    `).join('')}
+    <div class="card">
+      <span class="link" onclick="renderSettings()">Edit Budgets</span><br/>
+      <span class="link" onclick="renderHistory()">View History</span><br/>
+      <span class="link" onclick="renderNewMonth()">Start New Month</span>
+    </div>
+  `;
+}
+
+function renderCategory(name) {
+  const c = state.categories[name];
+  const app = document.getElementById('app');
+  app.innerHTML = `
+    <h1>${name}</h1>
+    <div class="card">
+      <div>Spent: ¥${c.spent.toLocaleString()}</div>
+      <div class="muted">Budget: ¥${c.budget.toLocaleString()}</div>
+      <label>Add Expense (¥)</label>
+      <input id="amt" type="number" />
+      <button onclick="addExpense('${name}')">Add</button>
+    </div>
+    <span class="link" onclick="renderMain()">← Back</span>
+  `;
+}
+
+function addExpense(name) {
+  const val = Number(document.getElementById('amt').value);
+  if (!val) return;
+  state.categories[name].spent += val;
+  saveState();
+  renderCategory(name);
+}
+
+function renderSettings() {
+  const app = document.getElementById('app');
+  app.innerHTML = `
+    <h1>Edit Budgets</h1>
+    ${Object.entries(state.categories).map(([name,c])=>`
+      <div class="card">
+        <strong>${name}</strong>
+        <input type="number" value="${c.budget}" onchange="updateBudget('${name}', this.value)" />
+      </div>
+    `).join('')}
+    <span class="link" onclick="renderMain()">← Back</span>
+  `;
+}
+
+function updateBudget(name,val) {
+  state.categories[name].budget = Number(val);
+  saveState();
+}
+
+function renderNewMonth() {
+  const app = document.getElementById('app');
+  app.innerHTML = `
+    <h1>Start New Month</h1>
+    <div class="card">
+      <label>Month Title</label>
+      <input id="monthTitle" placeholder="e.g. March 2026" />
+      <button onclick="startNewMonth()">Start</button>
+    </div>
+    <span class="link" onclick="renderMain()">← Back</span>
+  `;
+}
+
+function startNewMonth() {
+  history.push(JSON.parse(JSON.stringify(state)));
+  const title = document.getElementById('monthTitle').value || 'New Month';
+  state = { monthTitle: title, categories: JSON.parse(JSON.stringify(defaultCategories)) };
+  saveState();
+  renderMain();
+}
+
+function renderHistory() {
+  const app = document.getElementById('app');
+  app.innerHTML = `
+    <h1>History</h1>
+    ${history.map(h=>`
+      <div class="card">
+        <strong>${h.monthTitle}</strong><br/>
+        Total: ¥${Object.values(h.categories).reduce((a,c)=>a+c.spent,0).toLocaleString()}
+      </div>
+    `).join('')}
+    <span class="link" onclick="renderMain()">← Back</span>
+  `;
+}
+
+loadState();
+renderMain();
+</script>
+</body>
+</html>
